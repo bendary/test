@@ -37,13 +37,6 @@ jobs:
         shell: pwsh
         run: choco install innosetup --yes --no-progress
 
-      - name: Validate build script exists
-        shell: pwsh
-        run: |
-          if (-not (Test-Path ".\scripts\build_windows_installer.bat")) {
-            throw "缺少 scripts\\build_windows_installer.bat，请先把你的 waigua_win 项目文件推送到仓库。"
-          }
-
       - name: Build app and installer
         shell: pwsh
         run: .\scripts\build_windows_installer.bat "$env:APP_NAME" "$env:APP_VERSION"

@@ -1,0 +1,21 @@
+[project]
+name = "waigua-win-gui"
+version = "0.1.0"
+description = "Windows GUI skeleton for script and screenshot management"
+requires-python = ">=3.10"
+dependencies = [
+    "airtest>=1.4.3 ; sys_platform == 'win32'",
+    "pillow>=10.0.0",
+    "pyinstaller>=6.0 ; sys_platform == 'win32'",
+]
+
+[project.scripts]
+waigua-win = "app.main:main"
+waigua_win = "app.main:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/app"]

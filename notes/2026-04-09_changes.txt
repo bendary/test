@@ -1,0 +1,20 @@
+修改时间: 2026-04-09 09:05:00 +0800
+
+修改内容:
+1) 新增 Python GUI 程序骨架（tkinter）:
+   - src/app/main.py
+   - src/app/ui.py
+   - src/app/script_parser.py
+   - src/app/runner.py
+   - src/app/config.py
+   - src/app/__init__.py
+2) 新增 pyproject.toml（最小可运行配置，含 pillow 依赖）。
+
+主要原因:
+- 按需求先提供可扩展的 GUI 骨架，后续可直接接入用户提供的 nisi / jjc 脚本。
+- 提前支持截图路径识别、预览、覆盖截图与脚本执行流程，降低后续对接成本。
+
+关键命令/步骤:
+- 创建目录: mkdir -p src/app notes
+- 执行脚本方式预置为: uv run python <script>
+
