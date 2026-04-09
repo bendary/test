@@ -46,6 +46,8 @@ Write-Host "==> Build installer (.exe)"
     "/DProjectRoot=$ProjectRoot" `
     "$PSScriptRoot\windows_installer.iss"
 
-Write-Host "构建完成："
-Write-Host "1) 目录版程序: $ProjectRoot\dist\$AppName\"
-Write-Host "2) 安装包: $ProjectRoot\dist\installer\"
+$portableDir = Join-Path $ProjectRoot "dist\$AppName"
+$installerDir = Join-Path $ProjectRoot "dist\installer"
+Write-Host "Build complete:"
+Write-Host ("Portable app: {0}" -f $portableDir)
+Write-Host ("Installer: {0}" -f $installerDir)
