@@ -1,7 +1,7 @@
 # -*- encoding=utf8 -*-
 __author__ = "xiaoshaobin"
 
-import multiprocessing as mp
+import ctypes
 import os
 import re
 
@@ -10,7 +10,7 @@ from airtest.core.settings import Settings as ST
 
 WINDOW_LIST_ENV = "AIRTEST_WINDOWS"
 WINDOW_TITLE_RE_ENV = "AIRTEST_WINDOW_TITLE_RE"
-DEFAULT_WINDOW_TITLE_RE = r".*石器时代觉醒.*"
+DEFAULT_WINDOW_TITLE_RE = r".*石器时代.*"
 
 
 def _resolve_window_uris() -> list[str]:
@@ -57,51 +57,63 @@ def _resolve_window_uris() -> list[str]:
     return list(dict.fromkeys(uris)) or ["Windows:///"]
 
 
-def _run_loop() -> None:
-    while True:
-        if exists(Template(r"tpl1745393180068.png", record_pos=(-0.394, -0.261), resolution=(1600, 900))):
-            touch(Template(r"tpl1745393190018.png", record_pos=(0.001, 0.129), resolution=(1600, 900)))
-
-        if exists(Template(r"tpl1745393205592.png", record_pos=(0.026, 0.05), resolution=(1600, 900))):
-            sleep(10)
-            continue
-
-        if exists(Template(r"tpl1745393236621.png", record_pos=(0.451, 0.178), resolution=(1600, 900))):
-            touch(Template(r"tpl1745393246603.png", record_pos=(0.451, 0.245), resolution=(1600, 900)))
-        if exists(Template(r"tpl1747125309729.png", record_pos=(-0.004, 0.172), resolution=(1600, 900))):
-            touch((909, 730))
-
-        sleep(3)
+def _extract_handle(window_uri: str) -> int | None:
+    if not window_uri.startswith("Windows:///"):
+        return None
+    raw = window_uri[len("Windows:///") :].split("?", 1)[0].strip()
+    if not raw or not raw.isdigit():
+        return None
+    return int(raw)
 
 
-def _worker(window_uri: str) -> None:
-    auto_setup(__file__, devices=[window_uri])
-    ST.CVSTRATEGY = ["tpl", "brisk"]
-    print(f"[INFO] 已连接窗口: {window_uri}")
-    _run_loop()
+def _activate_window(window_handle: int | None) -> None:
+    if window_handle is None or os.name != "nt":
+        return
+    user32 = ctypes.windll.user32
+    SW_RESTORE = 9
+    user32.ShowWindow(window_handle, SW_RESTORE)
+    user32.SetForegroundWindow(window_handle)
+    sleep(0.2)
+
+
+def _run_once() -> None:
+    if exists(Template(r"tpl1745393180068.png", record_pos=(-0.394, -0.261), resolution=(1600, 900))):
+        touch(Template(r"tpl1745393190018.png", record_pos=(0.001, 0.129), resolution=(1600, 900)))
+
+    if exists(Template(r"tpl1745393205592.png", record_pos=(0.026, 0.05), resolution=(1600, 900))):
+        sleep(10)
+        return
+
+    if exists(Template(r"tpl1745393236621.png", record_pos=(0.451, 0.178), resolution=(1600, 900))):
+        touch(Template(r"tpl1745393246603.png", record_pos=(0.451, 0.245), resolution=(1600, 900)))
+    if exists(Template(r"tpl1747125309729.png", record_pos=(-0.004, 0.172), resolution=(1600, 900))):
+        touch((909, 730))
+
+    sleep(3)
 
 
 def main() -> None:
     uris = _resolve_window_uris()
-    if len(uris) == 1:
-        _worker(uris[0])
-        return
+    auto_setup(__file__, devices=[uris[0]])
+    ST.CVSTRATEGY = ["tpl", "brisk"]
 
-    workers: list[mp.Process] = []
-    for uri in uris:
-        process = mp.Process(target=_worker, args=(uri,))
-        process.start()
-        workers.append(process)
-        print(f"[INFO] 启动窗口任务: {uri}, pid={process.pid}")
+    targets: list[tuple[str, int | None, str]] = []
+    for idx, uri in enumerate(uris):
+        dev = device() if idx == 0 else connect_device(uri)
+        handle = _extract_handle(uri)
+        targets.append((dev.uuid, handle, uri))
+        print(f"[INFO] 已连接窗口: {uri}")
 
-    for process in workers:
-        process.join()
+    while True:
+        for uuid, handle, uri in targets:
+            set_current(uuid)
+            _activate_window(handle)
+            print(f"[INFO] 当前窗口: {uri}")
+            _run_once()
 
 
 if __name__ == "__main__":
-    mp.freeze_support()
     main()
-
 
 
 

@@ -13,7 +13,7 @@ from PIL import Image, ImageGrab, ImageOps
 from .config import DEFAULT_SCRIPTS
 from .runner import run_script
 from .script_parser import parse_screenshot_paths
-from .window_detector import DetectedWindow, capture_window_preview, detect_windows
+from .window_detector import DetectedWindow, activate_window, detect_windows
 
 
 class AppUI:
@@ -28,7 +28,6 @@ class AppUI:
         self.image_items: dict[str, Path] = {}
         self.image_thumb_refs: list[tk.PhotoImage] = []
         self.detected_windows: list[DetectedWindow] = []
-        self.window_preview_ref: tk.PhotoImage | None = None
         self.window_uri_var = tk.StringVar(value="")
         self.script_path_var = tk.StringVar(value="")
         self.thumb_size = (260, 140)
@@ -113,10 +112,9 @@ class AppUI:
         image_scroll.grid(row=0, column=1, sticky="ns")
         self.image_list.configure(yscrollcommand=image_scroll.set)
 
-        stone_frame = ttk.LabelFrame(right, text="石器窗口预览")
+        stone_frame = ttk.LabelFrame(right, text="石器窗口检测")
         stone_frame.pack(fill="both", expand=True)
-        stone_frame.rowconfigure(1, weight=3)
-        stone_frame.rowconfigure(2, weight=2)
+        stone_frame.rowconfigure(1, weight=1)
         stone_frame.columnconfigure(0, weight=1)
 
         stone_button_row = ttk.Frame(stone_frame)
@@ -124,19 +122,16 @@ class AppUI:
         ttk.Button(stone_button_row, text="自动检测窗口", command=self._detect_stone_windows).pack(
             side="left"
         )
-        ttk.Button(stone_button_row, text="刷新预览", command=self._refresh_window_preview).pack(
+        ttk.Button(stone_button_row, text="激活选中窗口", command=self._activate_selected_window).pack(
             side="left", padx=(8, 0)
         )
 
-        self.window_preview_label = ttk.Label(stone_frame, text="请先检测并选择石器窗口")
-        self.window_preview_label.grid(row=1, column=0, sticky="nsew", padx=6, pady=4)
-
         self.window_list = tk.Listbox(stone_frame, exportselection=False, height=7)
-        self.window_list.grid(row=2, column=0, sticky="nsew", padx=6, pady=(0, 4))
+        self.window_list.grid(row=1, column=0, sticky="nsew", padx=6, pady=(4, 4))
         self.window_list.bind("<<ListboxSelect>>", self._on_window_select)
 
         ttk.Label(stone_frame, textvariable=self.window_uri_var, justify="left", wraplength=360).grid(
-            row=3, column=0, sticky="w", padx=6, pady=(0, 6)
+            row=2, column=0, sticky="w", padx=6, pady=(0, 6)
         )
 
         if system() != "Windows":
@@ -272,15 +267,10 @@ class AppUI:
         except Exception:
             return self._build_placeholder_thumbnail()
 
-    def _set_window_preview_text(self, text: str) -> None:
-        self.window_preview_ref = None
-        self.window_preview_label.configure(image="", text=text)
-
     def _detect_stone_windows(self, silent: bool = False) -> None:
         self.window_list.delete(0, tk.END)
         self.detected_windows = []
-        self.window_uri_var.set("")
-        self._set_window_preview_text("请先检测并选择石器窗口")
+        self.window_uri_var.set("请先检测并选择石器窗口")
 
         if system() != "Windows":
             if not silent:
@@ -299,16 +289,13 @@ class AppUI:
         self.detected_windows = windows
         if not windows:
             self.window_uri_var.set("未检测到石器时代觉醒窗口")
-            self._set_window_preview_text("未检测到石器时代觉醒窗口")
             self._log("[INFO] 未检测到石器时代觉醒窗口\n")
             return
 
         for idx, window in enumerate(windows, start=1):
             self.window_list.insert(tk.END, f"{idx}. {window.title} (HWND:{window.handle})")
 
-        self.window_list.selection_set(0)
-        self.window_list.activate(0)
-        self._on_window_select()
+        self.window_uri_var.set("检测完成，请点击窗口列表项以激活到前台。")
         self._log(f"[INFO] 检测到 {len(windows)} 个石器时代觉醒窗口\n")
 
     def _on_window_select(self, _event: object | None = None) -> None:
@@ -321,30 +308,26 @@ class AppUI:
 
         window = self.detected_windows[index]
         self.window_uri_var.set(f"{window.title}\n{window.airtest_uri}")
-        self._refresh_window_preview()
+        self._activate_selected_window()
 
-    def _refresh_window_preview(self) -> None:
+    def _activate_selected_window(self) -> None:
         selection = self.window_list.curselection()
         if not selection:
-            self._set_window_preview_text("请先检测并选择石器窗口")
+            self.window_uri_var.set("请先检测并选择石器窗口")
             return
         index = selection[0]
         if index < 0 or index >= len(self.detected_windows):
-            self._set_window_preview_text("请先检测并选择石器窗口")
+            self.window_uri_var.set("请先检测并选择石器窗口")
             return
 
         window = self.detected_windows[index]
         try:
-            screenshot = capture_window_preview(window)
-            photo = self._photo_from_pil(screenshot)
+            activate_window(window)
         except Exception as exc:  # noqa: BLE001
-            msg = f"窗口预览失败: {exc}"
-            self._set_window_preview_text(msg)
+            msg = f"激活窗口失败: {exc}"
             self._log(f"[ERROR] {msg}\n")
             return
-
-        self.window_preview_ref = photo
-        self.window_preview_label.configure(image=photo, text="")
+        self._log(f"[INFO] 已激活窗口: {window.title} (HWND:{window.handle})\n")
 
     def _capture_and_overwrite(self) -> None:
         if not self.current_image_path:

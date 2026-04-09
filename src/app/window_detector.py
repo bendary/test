@@ -76,3 +76,24 @@ def capture_window_preview(window: DetectedWindow, max_size: tuple[int, int] = (
     ).convert("RGBA")
     screenshot.thumbnail(max_size)
     return screenshot
+
+
+def activate_window(window: DetectedWindow) -> None:
+    if system() != "Windows":
+        raise RuntimeError("当前系统不是 Windows，无法激活窗口。")
+
+    try:
+        from pywinauto import Desktop
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError("缺少 pywinauto，无法激活窗口。") from exc
+
+    last_error: Exception | None = None
+    for backend in ("uia", "win32"):
+        try:
+            target = Desktop(backend=backend).window(handle=window.handle)
+            target.set_focus()
+            return
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+
+    raise RuntimeError(f"激活窗口失败(HWND:{window.handle}): {last_error}") from last_error
