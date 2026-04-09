@@ -1,0 +1,63 @@
+name: Build Windows Installer
+
+on:
+  workflow_dispatch:
+    inputs:
+      app_name:
+        description: "Application name"
+        required: false
+        default: "ShiqiAutoWin"
+      app_version:
+        description: "Application version"
+        required: false
+        default: "0.1.0"
+  push:
+    paths:
+      - "src/**"
+      - "scripts/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/windows-build-installer.yml"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    env:
+      APP_NAME: ${{ github.event.inputs.app_name || 'ShiqiAutoWin' }}
+      APP_VERSION: ${{ github.event.inputs.app_version || '0.1.0' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup UV
+        uses: astral-sh/setup-uv@v5
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup --yes --no-progress
+
+      - name: Validate build script exists
+        shell: pwsh
+        run: |
+          if (-not (Test-Path ".\scripts\build_windows_installer.bat")) {
+            throw "缺少 scripts\\build_windows_installer.bat，请先把你的 waigua_win 项目文件推送到仓库。"
+          }
+
+      - name: Build app and installer
+        shell: pwsh
+        run: .\scripts\build_windows_installer.bat "$env:APP_NAME" "$env:APP_VERSION"
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer-${{ env.APP_NAME }}-${{ env.APP_VERSION }}
+          path: dist/installer/*.exe
+          if-no-files-found: error
+
+      - name: Upload portable folder artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-portable-${{ env.APP_NAME }}-${{ env.APP_VERSION }}
+          path: dist/${{ env.APP_NAME }}/
+          if-no-files-found: error
