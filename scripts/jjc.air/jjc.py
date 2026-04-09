@@ -36,10 +36,20 @@ def _resolve_window_uris() -> list[str]:
     except ImportError:
         return ["Windows:///"]
 
+    windows = None
+    for backend in ("uia", "win32"):
+        try:
+            windows = Desktop(backend=backend).windows()
+            break
+        except Exception:
+            continue
+    if windows is None:
+        return ["Windows:///"]
+
     title_re = os.getenv(WINDOW_TITLE_RE_ENV, DEFAULT_WINDOW_TITLE_RE)
     matcher = re.compile(title_re)
     uris: list[str] = []
-    for win in Desktop(backend="uia").windows():
+    for win in windows:
         title = (win.window_text() or "").strip()
         if not title or not matcher.search(title):
             continue

@@ -29,8 +29,20 @@ def detect_windows(title_keyword: str = "石器时代觉醒") -> list[DetectedWi
     except Exception as exc:  # noqa: BLE001
         raise RuntimeError("缺少 pywinauto，无法检测 Windows 窗口。") from exc
 
+    windows = None
+    last_error: Exception | None = None
+    for backend in ("uia", "win32"):
+        try:
+            windows = Desktop(backend=backend).windows()
+            break
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+
+    if windows is None:
+        raise RuntimeError(f"无法枚举 Windows 窗口: {last_error}") from last_error
+
     results: list[DetectedWindow] = []
-    for win in Desktop(backend="uia").windows():
+    for win in windows:
         title = (win.window_text() or "").strip()
         if not title or title_keyword not in title:
             continue
@@ -64,4 +76,3 @@ def capture_window_preview(window: DetectedWindow, max_size: tuple[int, int] = (
     ).convert("RGBA")
     screenshot.thumbnail(max_size)
     return screenshot
-
